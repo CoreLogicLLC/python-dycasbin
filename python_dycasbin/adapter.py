@@ -7,34 +7,34 @@ from casbin import persist
 class Adapter(persist.Adapter):
     """the interface for Casbin adapters."""
 
-    def __init__(self, table_name='casbin_rule', **kwargs):
+    def __init__(self, table_name='casbin_rule', create_table=True, **kwargs):
         """create connection and dynamodb table"""
         self.table_name = table_name
         self.dynamodb = boto3.client('dynamodb', **kwargs)
-        try:
+        if create_table:
+            try:
+                self.dynamodb.create_table(
+                    TableName=self.table_name,
 
-            self.dynamodb.create_table(
-                TableName=self.table_name,
-
-                AttributeDefinitions=[
-                    {
-                        'AttributeName': 'id',
-                        'AttributeType': 'S'
+                    AttributeDefinitions=[
+                        {
+                            'AttributeName': 'id',
+                            'AttributeType': 'S'
+                        }
+                    ],
+                    KeySchema=[
+                        {
+                            'AttributeName': 'id',
+                            'KeyType': 'HASH'
+                        },
+                    ],
+                    ProvisionedThroughput={
+                        'ReadCapacityUnits': 10,
+                        'WriteCapacityUnits': 10
                     }
-                ],
-                KeySchema=[
-                    {
-                        'AttributeName': 'id',
-                        'KeyType': 'HASH'
-                    },
-                ],
-                ProvisionedThroughput={
-                    'ReadCapacityUnits': 10,
-                    'WriteCapacityUnits': 10
-                }
-            )
-        except self.dynamodb.exceptions.ResourceInUseException:
-            pass
+                )
+            except self.dynamodb.exceptions.ResourceInUseException:
+                pass
 
     def load_policy(self, model):
         """load all policies from database"""
