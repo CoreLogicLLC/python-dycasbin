@@ -30,7 +30,9 @@ def test_init(create_table):
         assert obj.table_name == table_name
 
         table = dynamodb.Table(table_name)
-        with pytest.raises(botocore.exceptions.ClientError, match=r".*ResourceNotFoundException.*"):
+        with pytest.raises(
+            botocore.exceptions.ClientError, match=r".*ResourceNotFoundException.*"
+        ):
             assert table.table_status == "FOO"
 
 
@@ -91,3 +93,38 @@ def test_get_line_from_item(mocker):
 
 def mock_get_line_from_item(itme, model):
     return policy_line
+
+
+@mock_dynamodb2
+def test_remove_policy():
+    from python_dycasbin import adapter
+
+    dynamodb = boto3.resource("dynamodb")
+    dynamodb.create_table(
+        TableName=table_name,
+        AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+        KeySchema=[
+            {"AttributeName": "id", "KeyType": "HASH"},
+        ],
+        ProvisionedThroughput={"ReadCapacityUnits": 10, "WriteCapacityUnits": 10},
+    )
+
+    p_md5 = "8a70746059dc24fa3b1e0d3ba0aa8839"
+    table = dynamodb.Table(table_name)
+    table.put_item(
+        Item={
+            "id": p_md5,
+            "v0": "sub://cd764ed2-dad7-4705-aa4a-33d833e53c5b",
+            "ptype": "g",
+            "v1": "group://test grp",
+        }
+    )
+
+    a = adapter.Adapter(table_name=table_name, create_table=False)
+
+    a.remove_filtered_policy(
+        "g", "g", 0, {"sub://cd764ed2-dad7-4705-aa4a-33d833e53c5b"}
+    )
+
+    res = table.get_item(Key={"id": p_md5})
+    assert res is None
